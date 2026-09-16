@@ -15,6 +15,7 @@ const CREDENTIAL_HELPER_PATH = path.join(__dirname, 'create-ios-creds.js');
 
 const EXPECTED = {
   bundleIdentifier: 'fr.myjantespro.app',
+  androidPackage: 'fr.myjantespro.app',
   appleTeamId: 'GP593F562X',
   ascAppId: '6795747282',
 };
@@ -56,6 +57,11 @@ const values = [
     label: 'Expo app.json → expo.ios.bundleIdentifier',
     actual: appConfig.expo?.ios?.bundleIdentifier,
     expected: EXPECTED.bundleIdentifier,
+  },
+  {
+    label: 'Expo app.json → expo.android.package',
+    actual: appConfig.expo?.android?.package,
+    expected: EXPECTED.androidPackage,
   },
   {
     label: 'EAS production submit → ios.bundleIdentifier',
