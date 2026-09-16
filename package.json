@@ -1,0 +1,19 @@
+{
+  "name": "myjantes-pro-app-workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "pnpm --filter @workspace/myjantes run typecheck",
+    "validate": "pnpm --filter @workspace/myjantes run validate:ios-identifiers",
+    "build": "pnpm --filter @workspace/myjantes run build"
+  },
+  "private": true,
+  "dependencies": {
+    "@replit/connectors-sdk": "^0.4.1"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "typescript": "~5.9.3"
+  },
+  "description": "Clean MyJantes mobile workspace"
+}
