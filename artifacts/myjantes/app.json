@@ -33,7 +33,7 @@
       }
     },
     "android": {
-      "package": "app.mytoolsmobile.mytoolsgroup.eu",
+      "package": "fr.myjantespro.app",
       "versionCode": 100,
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A",
