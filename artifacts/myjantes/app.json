@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "fr.myjantespro.app",
       "appleTeamId": "GP593F562X",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "entitlements": {
         "aps-environment": "production"
       },
