@@ -30,8 +30,8 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "6795747282",
-        "bundleIdentifier": "fr.myjantespro.app",
+        "ascAppId": "6812158864",
+        "bundleIdentifier": "com.myjantes.pro",
         "appleTeamId": "GP593F562X"
       }
     }
