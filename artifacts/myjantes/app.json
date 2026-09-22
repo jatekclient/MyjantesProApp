@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "MyJantes",
+    "name": "MyJantes Pro",
     "slug": "myjantes",
     "version": "3.0.0",
     "orientation": "portrait",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "fr.myjantespro.app",
+      "bundleIdentifier": "com.myjantes.pro",
       "appleTeamId": "GP593F562X",
       "buildNumber": "12",
       "entitlements": {
@@ -33,7 +33,7 @@
       }
     },
     "android": {
-      "package": "fr.myjantespro.app",
+      "package": "com.myjantes.pro",
       "versionCode": 100,
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A",
