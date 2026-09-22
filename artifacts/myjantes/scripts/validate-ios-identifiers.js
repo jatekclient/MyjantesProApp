@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify that every checked-in iOS release configuration targets the same
+ * Verify that every checked-in mobile release configuration targets the same
  * Apple application before creating or submitting a production build.
  */
 'use strict';
@@ -14,10 +14,11 @@ const EAS_CONFIG_PATH = path.join(ARTIFACT_ROOT, 'eas.json');
 const CREDENTIAL_HELPER_PATH = path.join(__dirname, 'create-ios-creds.js');
 
 const EXPECTED = {
-  bundleIdentifier: 'fr.myjantespro.app',
-  androidPackage: 'fr.myjantespro.app',
+  appName: 'MyJantes Pro',
+  bundleIdentifier: 'com.myjantes.pro',
+  androidPackage: 'com.myjantes.pro',
   appleTeamId: 'GP593F562X',
-  ascAppId: '6795747282',
+  ascAppId: '6812158864',
 };
 
 function readJson(filePath) {
@@ -36,7 +37,7 @@ function readHelperConstant(source, name) {
 }
 
 function fail(message) {
-  console.error(`\n iOS identity preflight failed: ${message}`);
+  console.error(`\n Mobile identity preflight failed: ${message}`);
   process.exitCode = 1;
 }
 
@@ -48,6 +49,16 @@ const helperSource = fs.existsSync(CREDENTIAL_HELPER_PATH)
   : null;
 
 const values = [
+  {
+    label: 'Expected app name',
+    actual: EXPECTED.appName,
+    expected: EXPECTED.appName,
+  },
+  {
+    label: 'Expo app.json → expo.name',
+    actual: appConfig.expo?.name,
+    expected: EXPECTED.appName,
+  },
   {
     label: 'Expected Apple bundle ID',
     actual: EXPECTED.bundleIdentifier,
@@ -108,13 +119,13 @@ if (helperSource) {
 const failures = values.filter(({ actual, expected }) => actual !== expected);
 
 if (failures.length > 0) {
-  console.error('\n iOS identity preflight failed. Do not build or submit until these values match:');
+  console.error('\n Mobile identity preflight failed. Do not build or submit until these values match:');
   for (const { label, actual, expected } of failures) {
     console.error(` - ${label}: expected "${expected}", found "${actual ?? '<missing>'}"`);
   }
   process.exitCode = 1;
 } else {
-  console.log('iOS identity preflight passed.');
+  console.log('Mobile identity preflight passed.');
   console.log(` - Bundle ID: ${EXPECTED.bundleIdentifier}`);
   console.log(` - Apple Team ID: ${EXPECTED.appleTeamId}`);
   console.log(` - App Store ID: ${EXPECTED.ascAppId}`);
