@@ -32,6 +32,8 @@ export default function PrivacyScreen() {
         <Text style={styles.bullet}>- Adresse postale</Text>
         <Text style={styles.bullet}>- Pour les professionnels : raison sociale, SIRET, numéro de TVA, adresse de l'entreprise</Text>
         <Text style={styles.bullet}>- Photos de jantes envoyées avec les demandes de devis</Text>
+        <Text style={styles.bullet}>- Identifiant du compte, demandes, factures, réservations et messages de support</Text>
+        <Text style={styles.bullet}>- Identifiant technique de notification lorsque les notifications sont activées</Text>
       </View>
 
       <View style={styles.section}>

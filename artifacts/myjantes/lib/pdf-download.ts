@@ -40,8 +40,15 @@ function buildPublicPdfUrl(
 }
 
 function resolvePdfUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) return url;
-  return `${getDIRECT_API()}${url.startsWith("/") ? "" : "/"}${url}`;
+  const resolved = new URL(url, `${getDIRECT_API()}/`);
+  if (resolved.protocol !== "https:" || resolved.username || resolved.password) {
+    throw new Error("Adresse PDF non sécurisée.");
+  }
+  return resolved.href;
+}
+
+function isApiUrl(url: string): boolean {
+  return new URL(url).origin === new URL(getDIRECT_API()).origin;
 }
 
 async function removeExistingFile(filePath: string): Promise<void> {
@@ -59,7 +66,7 @@ async function downloadPdfFile(
 ): Promise<{ uri: string; status: number; headers?: Record<string, string> }> {
   await removeExistingFile(filePath);
   let result = await FileSystem.downloadAsync(url, filePath, { headers });
-  if (result.status === 401 && (await refreshApiTokens())) {
+  if (result.status === 401 && isApiUrl(url) && (await refreshApiTokens())) {
     await removeExistingFile(filePath);
     result = await FileSystem.downloadAsync(url, filePath, { headers: buildAuthHeaders() });
   }
@@ -95,9 +102,9 @@ export async function viewDocumentPdf(
 ): Promise<boolean> {
   try {
     const url = resolvePdfUrl(rawUrl);
-    const isApiUrl = url.startsWith(getDIRECT_API());
+    const authenticatedUrl = isApiUrl(url);
 
-    if (!isApiUrl) {
+    if (!authenticatedUrl) {
       if (Platform.OS === "web") {
         window.open(url, "_blank");
       } else {
@@ -164,7 +171,7 @@ export async function viewDocumentPdf(
       const redirected = await downloadPdfFile(
         redirectTarget,
         filePath,
-        redirectTarget.startsWith(getDIRECT_API()) ? buildAuthHeaders() : {},
+         isApiUrl(redirectTarget) ? buildAuthHeaders() : {},
       );
       if (redirected.status !== 200) {
         throw new Error(`Le serveur a répondu ${redirected.status}. Réessayez plus tard.`);
@@ -290,7 +297,7 @@ export async function viewPdf(
              const redirected = await downloadPdfFile(
                redirectTarget,
                filePath,
-               redirectTarget.startsWith(getDIRECT_API()) ? buildAuthHeaders() : {},
+                isApiUrl(redirectTarget) ? buildAuthHeaders() : {},
              );
              if (redirected.status !== 200) {
                throw new Error(`Le serveur a répondu ${redirected.status}. Réessayez plus tard.`);
@@ -325,7 +332,7 @@ export async function viewPdf(
                const redirected = await downloadPdfFile(
                  redirectTarget,
                  filePath,
-                 redirectTarget.startsWith(getDIRECT_API()) ? buildAuthHeaders() : {},
+                  isApiUrl(redirectTarget) ? buildAuthHeaders() : {},
                );
                if (redirected.status !== 200) {
                  throw new Error(`Le serveur a répondu ${redirected.status}. Réessayez plus tard.`);

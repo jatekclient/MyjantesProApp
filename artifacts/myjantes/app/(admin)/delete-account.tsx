@@ -13,7 +13,7 @@ import { useCustomAlert } from "@/components/CustomAlert";
 
 export default function DeleteAccountScreen() {
   const insets = useSafeAreaInsets();
-  const { logout, user } = useAuth();
+  const { deleteAccount, user } = useAuth();
   const theme = useTheme();
   const styles = useMemo(() => getStyles(theme), [theme]);
   const { showAlert, AlertComponent } = useCustomAlert();
@@ -29,11 +29,8 @@ export default function DeleteAccountScreen() {
 
     setLoading(true);
     try {
-      const { apiCall } = await import("@/lib/api");
-      await apiCall("/api/mobile/auth/account", { method: "DELETE" });
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await logout();
+      await deleteAccount();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => router.replace("/(auth)/login"), 100);
     } catch (err: any) {
       showAlert({
@@ -71,7 +68,7 @@ export default function DeleteAccountScreen() {
               </View>
               <Text style={styles.warningTitle}>Attention !</Text>
               <Text style={styles.warningText}>
-                La suppression de votre compte est définitive et irréversible. Toutes vos données seront supprimées de manière permanente :
+                La suppression de votre compte est irréversible, sous réserve des obligations légales de conservation des données, notamment de facturation :
               </Text>
             </View>
 

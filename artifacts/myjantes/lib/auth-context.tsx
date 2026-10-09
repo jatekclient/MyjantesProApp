@@ -10,7 +10,8 @@ import React, {
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { authApi, getApiAccessToken, normalizeUserProfile, setApiAccessToken, setApiOnTokensRefreshed, setApiRefreshToken, type LoginData, type RegisterData, type UserProfile } from "./api";
+import { authApi, getApiAccessToken, normalizeUserProfile, setApiAccessToken, setApiOnTokensRefreshed, setApiRefreshToken, setSessionCookie, type LoginData, type RegisterData, type UserProfile } from "./api";
+import { queryClient } from "./query-client";
 import { MYJANTES_API_BASE } from "./config";
 
 const ACCESS_TOKEN_KEY = "access_token";
@@ -45,6 +46,7 @@ interface AuthContextValue {
   login: (data: LoginData) => Promise<UserProfile | null>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
   biometricLogin: () => Promise<boolean>;
   socialLogin: (idToken: string, provider: string) => Promise<SocialLoginResult>;
@@ -99,9 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRequiresBiometric(false);
     setApiAccessToken(null);
     setApiRefreshToken(null);
+    setSessionCookie(null);
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await Promise.all([
       storageRemove(ACCESS_TOKEN_KEY),
       storageRemove(REFRESH_TOKEN_KEY),
+      storageRemove("session_cookie"),
+      storageRemove("social_access_token"),
+      storageRemove("biometric_enabled"),
     ]);
   }, []);
 
@@ -169,12 +177,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await clearSession();
       throw new Error("Cette application est réservée aux clients MyJantes.");
     }
+    if (!token) {
+      await clearSession();
+      throw new Error("Réponse de connexion invalide. Veuillez réessayer.");
+    }
     if (token) {
       setApiAccessToken(token);
       setApiRefreshToken(refresh || null);
       setAccessToken(token);
       await storageSet(ACCESS_TOKEN_KEY, token);
       if (refresh) await storageSet(REFRESH_TOKEN_KEY, refresh);
+      else await storageRemove(REFRESH_TOKEN_KEY);
     }
     setUser(loggedInUser);
     setRequiresBiometric(false);
@@ -192,6 +205,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // The local session is still cleared if the upstream is unavailable.
     }
+    await clearSession();
+  }, [clearSession]);
+
+  const deleteAccount = useCallback(async () => {
+    // Never clear the session or show success until the API accepts deletion.
+    await authApi.deleteAccount();
     await clearSession();
   }, [clearSession]);
 
@@ -330,11 +349,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     logout,
+    deleteAccount,
     refreshUser,
     biometricLogin,
     socialLogin,
     appleLogin,
-  }), [user, isLoading, requiresBiometric, accessToken, login, register, logout, refreshUser, biometricLogin, socialLogin, appleLogin]);
+  }), [user, isLoading, requiresBiometric, accessToken, login, register, logout, deleteAccount, refreshUser, biometricLogin, socialLogin, appleLogin]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

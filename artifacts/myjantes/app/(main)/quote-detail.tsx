@@ -88,25 +88,14 @@ export default function QuoteDetailScreen() {
   const [rejecting, setRejecting] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const { data: quote, isLoading } = useQuery({
+  const { data: quote, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["quote", id],
     queryFn: async () => {
-      try {
-        const detail = await quotesApi.getById(id!);
-        if (detail && (detail.id || (detail as any)._id)) return detail;
-      } catch {}
-      try {
-        const all = await quotesApi.getAll();
-        const list = Array.isArray(all) ? all : [];
-        const found = list.find((q) => String(q.id || (q as any)._id) === id);
-        if (found) return found;
-      } catch {}
-      const cached = queryClient.getQueryData<Quote[]>(["quotes"]);
-      if (cached) {
-        const found = cached.find((q) => String(q.id || (q as any)._id) === id);
-        if (found) return found;
+      const detail = await quotesApi.getById(id!);
+      if (!detail || !(detail.id || (detail as any)._id)) {
+        throw new Error("Réponse du serveur invalide.");
       }
-      return null;
+      return detail;
     },
     enabled: !!id,
   });
@@ -133,11 +122,14 @@ export default function QuoteDetailScreen() {
     );
   }
 
-  if (!quote) {
+  if (isError || !quote) {
     return (
       <View style={[styles.container, styles.center]}>
         <Ionicons name="alert-circle-outline" size={48} color={theme.textTertiary} />
-        <Text style={styles.errorText}>Devis introuvable</Text>
+        <Text style={styles.errorText}>{error?.message || "Devis introuvable"}</Text>
+        <Pressable onPress={() => void refetch()} style={styles.backLink}>
+          <Text style={styles.backLinkText}>Réessayer</Text>
+        </Pressable>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Retour</Text>
         </Pressable>

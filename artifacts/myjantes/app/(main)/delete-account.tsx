@@ -5,29 +5,14 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as SecureStore from "expo-secure-store";
-import { apiCall } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { useCustomAlert } from "@/components/CustomAlert";
 import { useTheme } from "@/lib/theme";
 import { ThemeColors } from "@/constants/theme";
 
-async function clearAllStorage() {
-  try { await AsyncStorage.clear(); } catch {}
-  if (Platform.OS !== "web") {
-    const keys = ["session_cookie", "biometric_enabled", "access_token", "refresh_token", "social_access_token"];
-    for (const key of keys) {
-      try { await SecureStore.deleteItemAsync(key); } catch {}
-    }
-  }
-}
-
 const DELETIONS = [
   "Votre compte et identifiants de connexion",
-  "Toutes vos données personnelles (nom, email, téléphone, adresse)",
-  "L'historique de vos devis et demandes",
-  "L'historique de vos factures",
-  "Vos réservations et rendez-vous",
+  "Les données personnelles non soumises à une obligation de conservation",
   "Vos préférences et paramètres de l'application",
 ];
 
@@ -39,18 +24,13 @@ export default function DeleteAccountScreen() {
   const [step, setStep] = useState<1 | 2>(1);
   const [deleting, setDeleting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const { deleteAccount } = useAuth();
 
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await apiCall("/api/mobile/auth/account", { method: "DELETE" });
-      await clearAllStorage();
-      showAlert({
-        type: "success",
-        title: "Compte supprimé",
-        message: "Votre compte et toutes vos données ont été définitivement supprimés conformément au RGPD.",
-        buttons: [{ text: "OK", style: "primary", onPress: () => router.replace("/(auth)/login") }],
-      });
+      await deleteAccount();
+      router.replace("/(auth)/login");
     } catch (err: any) {
       setStep(1);
       showAlert({
@@ -87,7 +67,7 @@ export default function DeleteAccountScreen() {
               <Ionicons name="warning" size={32} color="#EF4444" />
               <Text style={styles.warningTitle}>Action irréversible</Text>
               <Text style={styles.warningText}>
-                La suppression de votre compte est définitive et irréversible. Conformément au RGPD (Règlement Général sur la Protection des Données), l'ensemble de vos données personnelles sera effacé de nos systèmes.
+                La suppression de votre compte est irréversible. Certaines données, notamment les pièces de facturation, peuvent être conservées au titre des obligations légales.
               </Text>
             </View>
 
@@ -109,7 +89,7 @@ export default function DeleteAccountScreen() {
             <View style={styles.rgpdBox}>
               <Ionicons name="shield-checkmark-outline" size={18} color="#6366F1" />
               <Text style={styles.rgpdText}>
-                Conformément à l'article 17 du RGPD, vous avez le droit à l'effacement de vos données. Cette suppression prend effet immédiatement et de manière permanente.
+                 Vous pouvez demander l'effacement de vos données. Consultez la politique de confidentialité pour les exceptions et les durées de conservation.
               </Text>
             </View>
 
@@ -131,7 +111,7 @@ export default function DeleteAccountScreen() {
             </View>
 
             <Text style={styles.confirmText}>
-              Vous êtes sur le point de supprimer définitivement votre compte et toutes les données associées. Cette action ne peut pas être annulée.
+               Vous êtes sur le point de supprimer votre compte. Cette action ne peut pas être annulée ; les obligations légales de conservation restent applicables.
             </Text>
 
             <Pressable style={styles.checkRow} onPress={() => setConfirmed(v => !v)}>
@@ -139,7 +119,7 @@ export default function DeleteAccountScreen() {
                 {confirmed && <Ionicons name="checkmark" size={14} color="#fff" />}
               </View>
               <Text style={styles.checkLabel}>
-                Je comprends que la suppression est définitive et irréversible, et que toutes mes données seront effacées conformément au RGPD.
+                 Je comprends que la suppression est irréversible, sous réserve des obligations légales de conservation.
               </Text>
             </Pressable>
 

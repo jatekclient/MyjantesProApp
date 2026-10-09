@@ -66,7 +66,9 @@ async function fetchWithRetry(
   try {
     return await fetchWithTimeout(url, options, useGlobal);
   } catch (err: any) {
-    if (retries > 0 && isNetworkError(err)) {
+    if (retries > 0 && isNetworkError(err) &&
+        (["GET", "HEAD"].includes((options.method || "GET").toUpperCase()) ||
+         options.headers?.["Idempotency-Key"])) {
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       return fetchWithRetry(url, options, useGlobal, retries - 1);
     }
@@ -126,14 +128,17 @@ export async function refreshApiTokens(): Promise<boolean> {
 
 async function tryRefreshApiToken(): Promise<boolean> {
   if (!apiRefreshToken) return false;
+  const refreshAtStart = apiRefreshToken;
   try {
     const res = await fetchWithRetry(`${getNativeApiBase()}/api/mobile/refresh-token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ refreshToken: apiRefreshToken }),
+      body: JSON.stringify({ refreshToken: refreshAtStart }),
     });
     if (res.ok) {
       const data = await res.json();
+      // A logout/deletion or new login while the request was in flight must win.
+      if (apiRefreshToken !== refreshAtStart) return false;
       if (data.accessToken) {
         apiAccessToken = data.accessToken;
         if (data.refreshToken) apiRefreshToken = data.refreshToken;
@@ -247,6 +252,8 @@ export async function apiCall<T = any>(
       if (isFormData) {
         const retryFormHeaders: Record<string, string> = {
           Authorization: `Bearer ${apiAccessToken}`,
+          ...Object.fromEntries(Object.entries(headers).filter(([key]) =>
+            !["content-type", "authorization", "cookie"].includes(key.toLowerCase()))),
         };
         res = await fetchWithNativeFallback(endpoint, {
           method,
@@ -658,7 +665,9 @@ export interface Reservation {
 
 function unwrapList<T>(result: any): T[] {
   if (Array.isArray(result)) return result;
-  if (!result || typeof result !== "object") return [];
+  if (!result || typeof result !== "object") {
+    throw new Error("Liste reçue du serveur invalide. Veuillez réessayer.");
+  }
 
   // The production API has returned all of these envelopes over time. Keep
   // the transport normalization here so every screen consumes remote data in
@@ -674,20 +683,11 @@ function unwrapList<T>(result: any): T[] {
     const value = result[key];
     if (Array.isArray(value)) return value as T[];
     if (value && typeof value === "object") {
-      const nested = unwrapList<T>(value);
-      if (nested.length > 0) return nested;
+      return unwrapList<T>(value);
     }
   }
 
-  // Last chance for an unknown envelope, but only recurse through objects.
-  // Do not treat scalar metadata (count, available, message) as data.
-  for (const value of Object.values(result)) {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const nested = unwrapList<T>(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-  return [];
+  throw new Error("Liste reçue du serveur invalide. Veuillez réessayer.");
 }
 
 function unwrapSingle<T>(result: any): T {
@@ -736,11 +736,11 @@ function normalizeInvoice(raw: any): Invoice {
     clientId: String(value.clientId ?? value.client_id ?? value.customerId ?? value.customer_id ?? ""),
     invoiceNumber: String(value.invoiceNumber ?? value.invoice_number ?? value.number ?? value.reference ?? value.id ?? ""),
     status: String(value.status ?? value.state ?? ""),
-    totalHT: value.totalHT ?? value.total_ht ?? value.totalExcludingTax ?? value.total_excluding_tax ?? value.subtotal ?? "0",
+    totalHT: value.totalHT ?? value.total_ht ?? value.totalExcludingTax ?? value.total_excluding_tax ?? value.subtotal ?? "",
     totalTTC: value.totalTTC ?? value.total_ttc ?? value.totalIncludingTax ?? value.total_including_tax ??
-      value.totalAmount ?? value.total_amount ?? value.amount ?? value.total ?? "0",
-    tvaAmount: value.tvaAmount ?? value.tva_amount ?? value.taxAmount ?? value.tax_amount ?? value.vatAmount ?? "0",
-    tvaRate: value.tvaRate ?? value.tva_rate ?? value.taxRate ?? value.tax_rate ?? "20",
+      value.totalAmount ?? value.total_amount ?? value.amount ?? value.total ?? "",
+    tvaAmount: value.tvaAmount ?? value.tva_amount ?? value.taxAmount ?? value.tax_amount ?? value.vatAmount ?? "",
+    tvaRate: value.tvaRate ?? value.tva_rate ?? value.taxRate ?? value.tax_rate ?? "",
     dueDate: value.dueDate ?? value.due_date ?? value.paymentDueDate ?? null,
     paidAt: value.paidAt ?? value.paid_at ?? value.paymentDate ?? null,
     items: value.items ?? value.lineItems ?? value.line_items ?? value.lignes ?? value.lines ?? [],
@@ -1039,34 +1039,13 @@ function isEndpointMissing(err: any): boolean {
 
 // ── Delivery Notes (Bons de livraison) ──────────────────────────────────────
 export const deliveryNotesApi = {
-  /** Returns { available: false } when the endpoint returns 404/405 so the UI
-   *  can show the graceful empty state instead of an error. */
+  /** An unavailable endpoint is an error, never an empty document list. */
   getAll: async (): Promise<any> => {
-    try {
       const result = await apiCall<any>("/api/mobile/bon-livraison");
-      if (result?.available === false) return result;
+      if (result?.available === false) throw new Error("Bons de livraison indisponibles. Veuillez réessayer.");
       const notes = unwrapList<any>(result).map(normalizeDeliveryNote);
       if (Array.isArray(result)) return notes;
       return { ...result, data: notes };
-    } catch (err) {
-      if (isEndpointMissing(err)) {
-        // A few production deployments do not publish a standalone BL route,
-        // but include the documents in the authenticated profile payload.
-        try {
-          const profile = await apiCall<any>("/api/mobile/auth/me");
-          const notes = unwrapList<any>(
-            profile?.deliveryNotes ||
-            profile?.delivery_notes ||
-            profile?.bonLivraisons ||
-            profile?.bon_livraisons ||
-            profile,
-          ).map(normalizeDeliveryNote);
-          if (notes.length > 0) return { available: true, data: notes };
-        } catch {}
-        return { available: false, data: [] };
-      }
-      throw err;
-    }
   },
   getById: async (id: string): Promise<any> => {
     try {

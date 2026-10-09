@@ -70,20 +70,14 @@ export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showAlert, AlertComponent } = useCustomAlert();
   const [downloading, setDownloading] = React.useState(false);
-  const { data: invoice, isLoading } = useQuery({
+  const { data: invoice, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["invoice", id],
     queryFn: async () => {
-      try {
-        const detail = await invoicesApi.getById(id!);
-        if (detail && (detail.id || (detail as any)._id)) return detail;
-      } catch {}
-      try {
-        const all = await invoicesApi.getAll();
-        const list = Array.isArray(all) ? all : [];
-        const found = list.find((inv: any) => String(inv.id || inv._id) === id);
-        if (found) return found;
-      } catch {}
-      return null;
+      const detail = await invoicesApi.getById(id!);
+      if (!detail || !(detail.id || (detail as any)._id)) {
+        throw new Error("Réponse du serveur invalide.");
+      }
+      return detail;
     },
     enabled: !!id,
     retry: 1,
@@ -97,11 +91,14 @@ export default function InvoiceDetailScreen() {
     );
   }
 
-  if (!invoice) {
+  if (isError || !invoice) {
     return (
       <View style={[styles.container, styles.center]}>
         <Ionicons name="alert-circle-outline" size={48} color={theme.textTertiary} />
-        <Text style={styles.errorText}>Facture introuvable</Text>
+        <Text style={styles.errorText}>{error?.message || "Facture introuvable"}</Text>
+        <Pressable onPress={() => void refetch()} style={styles.backLink}>
+          <Text style={styles.backLinkText}>Réessayer</Text>
+        </Pressable>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Retour</Text>
         </Pressable>
@@ -181,26 +178,11 @@ export default function InvoiceDetailScreen() {
     inv.totalAmount ||
     inv.total_amount ||
     inv.total ||
-    "0";
+    "";
 
-  let totalTTCNum = parseFloat(totalTTCRaw) || 0;
-  if (totalTTCNum === 0 && totalHTNum > 0) {
-    totalTTCNum = totalHTNum + tvaAmountNum;
-  }
-  if (totalTTCNum === 0 && invoiceItems.length > 0) {
-    let itemsTotal = 0;
-    for (const item of invoiceItems) {
-      const qty = parseFloat(item.quantity || item.qty || "1") || 1;
-      const up = parseFloat(item.unitPrice || item.unit_price || item.price || item.priceHT || item.price_ht || "0");
-      const lt = parseFloat(item.total || item.totalHT || item.total_ht || item.lineTotal || item.line_total || "0");
-      itemsTotal += lt > 0 ? lt : (up * qty);
-    }
-    if (itemsTotal > 0) {
-      totalTTCNum = itemsTotal * (1 + (parseFloat(invoice.tvaRate || inv.tva_rate || inv.taxRate || inv.tax_rate || "20") / 100));
-    }
-  }
+  const totalTTCNum = parseFloat(totalTTCRaw) || 0;
 
-  const tvaRateNum = parseFloat(invoice.tvaRate || inv.tva_rate || inv.taxRate || inv.tax_rate || "20");
+  const tvaRateNum = parseFloat(invoice.tvaRate || inv.tva_rate || inv.taxRate || inv.tax_rate || "");
 
   const statusLower = invoice.status?.toLowerCase() || "";
   const isUnpaid = statusLower === "pending" || statusLower === "en_attente"
@@ -294,7 +276,7 @@ export default function InvoiceDetailScreen() {
             {invoiceItems.map((item: any, idx: number) => {
               const qty = item.quantity ? parseFloat(item.quantity) : 1;
               const unitPrice = item.unitPrice || item.price || item.priceHT || null;
-              const lineTotal = item.total || item.totalHT || (unitPrice ? (parseFloat(unitPrice) * qty).toString() : null);
+              const lineTotal = item.total ?? item.totalHT ?? item.total_ht ?? item.lineTotal ?? item.line_total ?? null;
               const desc = item.description || item.name || item.label || `Ligne ${idx + 1}`;
               const details = item.serviceDetails || item.details || item.notes || "";
               return (
@@ -336,13 +318,13 @@ export default function InvoiceDetailScreen() {
             )}
             {tvaAmountNum > 0 && (
               <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>TVA ({tvaRateNum}%)</Text>
+                <Text style={styles.amountLabel}>TVA{Number.isFinite(tvaRateNum) ? ` (${tvaRateNum}%)` : ""}</Text>
                 <Text style={styles.amountTVA}>{tvaAmountNum.toFixed(2)} €</Text>
               </View>
             )}
             <View style={[styles.amountRow, (totalHTNum > 0 || tvaAmountNum > 0) ? styles.totalRow : undefined]}>
               <Text style={styles.totalLabel}>Total TTC</Text>
-              <Text style={styles.totalValue}>{totalTTCNum.toFixed(2)} €</Text>
+              <Text style={styles.totalValue}>{totalTTCRaw !== "" ? `${totalTTCNum.toFixed(2)} €` : "Indisponible"}</Text>
             </View>
           </View>
         )}

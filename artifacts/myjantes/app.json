@@ -28,7 +28,7 @@
         "NSCalendarsUsageDescription": "MyJantes peut ajouter vos rendez-vous à votre calendrier.",
         "NSFaceIDUsageDescription": "MyJantes utilise Face ID pour sécuriser l’accès à votre compte client.",
         "NSMicrophoneUsageDescription": "MyJantes utilise le microphone uniquement si vous ajoutez une vidéo à une demande.",
-        "ITSAppUsesNonExemptEncryption": "NO",
+        "ITSAppUsesNonExemptEncryption": false,
         "NSUserNotificationsUsageDescription": "MyJantes vous envoie des notifications pour les mises à jour de devis, factures et rendez-vous."
       }
     },
